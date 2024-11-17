@@ -29,7 +29,7 @@ cursor.execute('''
         username TEXT,
         title TEXT,
         systemPrompt TEXT,
-        isDocumentSession BOOLEAN,
+        chatType TEXT,
         temperature REAL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         lastAccessedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP

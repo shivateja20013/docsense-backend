@@ -16,7 +16,6 @@ async def fn_update_chat_session(request: Request):
     system_prompt = request_data.get("systemPrompt")
     temperature = request_data.get("temperature")
     lastAccessedAt = request_data.get("lastAccessedAt")
-    isDocumentSession = request_data.get("isDocumentSession")
 
     updates = []
     params = []
@@ -33,9 +32,6 @@ async def fn_update_chat_session(request: Request):
     if lastAccessedAt:
         updates.append("lastAccessedAt = ?")
         params.append(lastAccessedAt)
-    if isDocumentSession:
-        updates.append("isDocumentSession = ?")
-        params.append(isDocumentSession)
 
     if not updates:
         return Response(content=json.dumps("No update fields provided."), status_code=400)
@@ -58,5 +54,5 @@ async def fn_update_chat_session(request: Request):
                 return Response(content=json.dumps("Chat session updated successfully."), status_code=200)
             else:
                 return Response(content=json.dumps("Chat session not found."), status_code=404)
-    except sqlite3.OperationalError as e:
+    except sqlite3.OperationalError:
         return Response(content=json.dumps("Database operation failed."), status_code=500)

@@ -1,6 +1,8 @@
+from typing import List
 from fastapi import FastAPI
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import File, UploadFile
 
 from functions.fn_authenticate_user import fn_authenticate_user
 from functions.fn_create_chat_session import fn_create_chat_session
@@ -20,6 +22,8 @@ from functions.fn_update_chat_session import fn_update_chat_session
 from functions.fn_update_chatbot import fn_update_chatbot
 from functions.fn_update_user import fn_update_user
 from functions.fn_chat import fn_chat
+from functions.fn_upload_files import fn_upload_files
+from functions.fn_get_files import fn_get_files
 
 app = FastAPI()
 
@@ -109,6 +113,15 @@ async def delete_conversation(conversation_id: int):
 @app.post("/chat/")
 async def chat(request: Request):
     return await fn_chat(request)
+
+@app.post("/upload/{chat_id}")
+async def upload_files(chat_id: int, files: List[UploadFile] = File(...)):
+    return await fn_upload_files(chat_id, files)
+
+@app.get("/files/{chat_id}")
+async def get_files(chat_id: int):
+    return await fn_get_files(chat_id)
+
 
 if __name__ == "__main__":
     uvicorn.run(app,
