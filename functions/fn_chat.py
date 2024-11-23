@@ -5,48 +5,68 @@ import sqlite3
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+from llama_index.chat_engine.types import ChatMode
+from llama_index.llms import ChatMessage, MessageRole
+
+from functions.fn_rag_utils import getIndex
 
 load_dotenv()
 DATABASE_PATH = os.getenv("DATABASE_PATH")
-OPEN_AI_TOKEN = os.getenv("OPEN_AI_TOKEN")
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+LLM_MODEL = os.getenv('LLM_MODEL')
 
+INDEX_PATH = os.getenv("INDEX_PATH")
+FILES_PATH = os.getenv("FILES_PATH")
+
+CHAT_MODE = ChatMode.REACT
 
 async def fn_chat(request: Request):
-    request_data = await request.json()
-    username = request_data["username"]
-    messages = request_data["messages"]
-    chat_id = request_data["chatId"]
+    requestData = await request.json()
+    messages = requestData["messages"]
+    chatId = requestData["chatId"]
+    chatType = requestData["chatType"]
+    systemPrompt = requestData["systemPrompt"]
+    temperature = requestData["temperature"]
     
-    print(messages[-1])
-    
-    if chat_id:
+    if chatId:
         try:
             with sqlite3.connect(DATABASE_PATH) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     INSERT INTO Conversations (chatSession, message, source)
                     VALUES (?, ?, ?)
-                ''', (chat_id, messages[-1]['content'], "user"))
+                ''', (chatId, messages[-1]['content'], "user"))
                 conn.commit()
         except sqlite3.OperationalError as e:
             print("Adding user message - Database operation failed.")
+
+        if not systemPrompt:
+            systemPrompt = """You are an AI assistant."""
+        response = ""
             
-        systemPrompt = """You are an AI assistant."""
+        if chatType=="model":
+            messages.insert(0, {'role':'system', 'content':systemPrompt})
+            client = OpenAI(
+                api_key=OPENAI_API_KEY
+            )
 
-        client = OpenAI(
-            api_key=OPEN_AI_TOKEN
-        )
+            chat_completion = client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=messages,
+                temperature=temperature
+            )
 
-        # messages = [{"role": "system", "content": systemPrompt}]
-        # if message is not None:
-        #     messages.append({"role": "user", "content": message})
+            response = chat_completion.choices[0].message.content
+        else:
+            chatHistory = []
+            for message in messages:
+                chatHistory.append(ChatMessage(content=message["content"], role=(MessageRole.USER if message["content"] == "user" else MessageRole.ASSISTANT)))
+            data_index = await getIndex(chatId)
+            chat_engine = data_index.as_chat_engine(chat_mode=CHAT_MODE, system_prompt=systemPrompt)
+            response = chat_engine.chat(message=messages[-1]["content"], chat_history=chatHistory)
 
-        chat_completion = client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=messages
-        )
-
-        content = chat_completion.choices[0].message.content
+        print(response)
+        response = str(response)
         
         try:
             with sqlite3.connect(DATABASE_PATH) as conn:
@@ -54,24 +74,12 @@ async def fn_chat(request: Request):
                 cursor.execute('''
                     INSERT INTO Conversations (chatSession, message, source)
                     VALUES (?, ?, ?)
-                ''', (chat_id, content, "assistant"))
+                ''', (chatId, response, "assistant"))
                 conn.commit()
         except sqlite3.OperationalError as e:
-            print("Adding assistant message - Database operation failed.")
+            print("Adding assistant message - Database operation failed.", e)
     
-        return Response(content=json.dumps(content), status_code=200)
+        return Response(content=json.dumps(response), status_code=200)
     
     else:
         return Response(content=json.dumps("Something went wrong."), status_code=500)
-
-    # try:
-    #     with sqlite3.connect(DATABASE_PATH) as conn:
-    #         cursor = conn.cursor()
-    #         cursor.execute('''
-    #             INSERT INTO ChatSession (username, title, systemPrompt, temperature)
-    #             VALUES (?, ?, ?, ?)
-    #         ''', (username, title, system_prompt, temperature))
-    #         conn.commit()
-    #         return Response(content=json.dumps("Chat session created successfully."), status_code=201)
-    # except sqlite3.OperationalError as e:
-    #     return Response(content=json.dumps("Database operation failed."), status_code=500)

@@ -25,6 +25,6 @@ async def fn_get_chat_sessions_by_user(username: str):
                                   "createdAt": row[4], "lastAccessedAt": row[5], "chatType": row[6]} for row in result]
                 return Response(content=json.dumps(response_data), status_code=200)
             else:
-                return Response(content=json.dumps("No chat sessions found for this user."), status_code=404)
+                return Response(content=json.dumps([]), status_code=200)
     except sqlite3.OperationalError:
         return Response(content=json.dumps("Database operation failed."), status_code=500)

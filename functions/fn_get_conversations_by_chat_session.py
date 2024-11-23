@@ -25,6 +25,6 @@ async def fn_get_conversations_by_chat_session(session_id: int):
                                  for row in result]
                 return Response(content=json.dumps(response_data), status_code=200)
             else:
-                return Response(content=json.dumps("No conversations found for this chat session."), status_code=404)
+                return Response(content=json.dumps([]), status_code=200)
     except sqlite3.OperationalError as e:
         return Response(content=json.dumps("Database operation failed."), status_code=500)
